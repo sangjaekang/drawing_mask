@@ -31,8 +31,8 @@ TYPE_OPTION = ["bounding box", "painting contour line"]
 TEMP_DIR = "temp" # 임시 작업공간
 MASK_IMG_DIR = 'bounding_box' # boundary box 저장 공간
 CONTOUR_IMG_DIR = 'contour' # Contour Area 저장 공간
-# 프로그램 상단에 뜰 제목
 
+# 프로그램 상단에 뜰 제목
 APPLICATION_TITLE = "MEDI-DRAW"
 
 class Application(Frame):
@@ -252,17 +252,17 @@ class Application(Frame):
 
     ### UI Showing 구성
     '''
-    이미지 관련
-        show_canvas_image : 화면 내 Canvas(작업 공간) 내에 올려질 Image를 보여주는 메소드
-        show_preview_image : 화면 내 preview box에 올려진 Image를 보여주는 메소드
-        show_annotation_mask : Canvas 위에 User가 그린 annotation을 보여주는 메소드
-          - show_bbox_mask    : Annotation 중 Boundary box를 보여주는 메소드
-          - show_contour_mask : Annotation 중 Contour Area를 보여주는 메소드
-    파일이름 관련
-        show_filename_text : 화면 내 파일이름을 보여주는 메소드
-    디버거 관련
-        append_text_debugbox : 화면 내 debugbox에 글자를 추가하는 메소드
-        clear_debugbox : 화면 내 debugbox 안 내용을 다 지우는 메소드
+    1. 이미지 관련
+        - show_canvas_image : 화면 내 Canvas(작업 공간) 내에 올려질 Image를 보여주는 메소드
+        - show_preview_image : 화면 내 preview box에 올려진 Image를 보여주는 메소드
+        - show_annotation_mask : Canvas 위에 User가 그린 annotation을 보여주는 메소드
+            - show_bbox_mask    : Annotation 중 Boundary box를 보여주는 메소드
+            - show_contour_mask : Annotation 중 Contour Area를 보여주는 메소드
+    2. 파일이름 관련
+        - show_filename_text : 화면 내 파일이름을 보여주는 메소드
+    3. 디버거 관련
+        - append_text_debugbox : 화면 내 debugbox에 글자를 추가하는 메소드
+        - clear_debugbox : 화면 내 debugbox 안 내용을 다 지우는 메소드
     '''
     def show_preview_image(self):
         # 현재 cv_image의 original image를 보여줌
@@ -285,8 +285,9 @@ class Application(Frame):
             adjusted_cv_image = self.adjust_image()
             # convert the images to PIL format and then to ImageTk format
             self.image = ImageTk.PhotoImage(Image.fromarray(adjusted_cv_image))
-            # if the Canvas are None, initialize them
+
             if self.image_on_canvas is None:
+                # if the Canvas are None, initialize them
                 self.image_on_canvas = self.canvas.create_image(0,0,anchor="nw",image=self.image)
             else:
                 self.canvas.itemconfig(self.image_on_canvas, image=self.image)
@@ -315,7 +316,8 @@ class Application(Frame):
             bbox_color = np.array(COLOR_PALETTE[bbox_type],dtype=np.uint8) # the numpy of color
             bbox_mask_inv = cv2.bitwise_not(bbox_mask)
 
-            bbox_mask_fg = np.outer(bbox_mask,bbox_color).reshape(bbox_mask.shape[0],-1,len(bbox_color)) # Boolean mask image를 Color를 입힌 RGB image로 바꾸어줌
+            # Boolean mask image를 Color를 입힌 RGB image로 바꾸어줌
+            bbox_mask_fg = np.outer(bbox_mask,bbox_color).reshape(bbox_mask.shape[0],-1,len(bbox_color))
             image_bg = cv2.bitwise_and(image_bg,image_bg,mask=bbox_mask_inv)
             image_bg = cv2.add(bbox_mask_fg, image_bg)
 
@@ -332,7 +334,8 @@ class Application(Frame):
             fill_color = np.array(COLOR_PALETTE[contour_type],dtype=np.uint8) # the numpy of color
             contour_mask_inv = cv2.bitwise_not(contour_mask)
 
-            contour_mask_fg = np.outer(contour_mask,fill_color).reshape(contour_mask.shape[0],-1,len(fill_color)) # Boolean mask image를 Color를 입힌 RGB image로 바꾸어줌
+            # Boolean mask image를 Color를 입힌 RGB image로 바꾸어줌
+            contour_mask_fg = np.outer(contour_mask,fill_color).reshape(contour_mask.shape[0],-1,len(fill_color))
             contour_mask_fg = np.uint8(self.blend_ratio*contour_mask_fg)
             image_bg = cv2.add(contour_mask_fg, image_bg)
 
@@ -353,93 +356,6 @@ class Application(Frame):
 
     def clear_debugbox(self):
         self.debugbox.delete(1.0,END)
-
-    ### 디렉토리 설정 및 초기 세팅
-    '''
-    디렉토리를 설정하자마자 모든 초기 세팅이 이루어짐
-    - select_input_directory
-        annotating할 이미지가 담긴 디렉토리를 설정
-    - set_output_directory
-        작업한 결과물이 저장된 디렉토리 설정
-        input directory 내부에 저장
-        output 폴더 종류
-            - temp : 임시 작업 공간 (csv : bounding box의 좌표 저장, npz : contour의 좌표 저장 )
-            - bounding box : bounding box가 저장된 공간 (annotation type별로 저장)
-            - contour : contour area가 저장된 공간
-    - set_first_image
-        기작업한 내용 다음부터 시작하도록 설정(없으면 처음)
-    '''
-    def select_input_directory(self,event=None):
-        # 조작할 이미지가 담겨있는 directory를 설정
-        self.image_dir_path = filedialog.askdirectory()
-        if self.image_dir_path == "" or self.image_dir_path is None:
-            return
-        self.input_image_list =[file_path for file_path in os.listdir(self.image_dir_path)\
-        if (os.path.splitext(file_path)[1].lower() == '.jpg') or (os.path.splitext(file_path)[1].lower() == '.png')]
-
-        self.file_scale.configure(to=(len(self.input_image_list)-1))
-
-        self.input_image_list.sort()
-
-        self.set_output_directory() # 저장할 위치 설정
-        self.set_first_image() # 처음 보여줄 이미지를 설정
-        self.bind_key_to_canvas() # 설정 키들을 canvas와 연결(event listener를 설정하는 것과 비슷)
-        self.clear_debugbox() # debugbox 내용 지우기
-
-        self.append_text_debugbox("input directory : {}".format(self.image_dir_path))
-        self.append_text_debugbox("the number of image : {}".format(len(self.input_image_list)))
-
-        self.show_canvas_image() # 이미지 보여주기
-        self.show_preview_image()
-        self.show_filename_text() # 현재 파일 순서 보여주기
-        self.load_annotation_mask() # 저장된 bbox_mask를 load함
-        self.show_annotation_mask() # 저장된 bbox_mask를 Show함
-
-
-    def set_output_directory(self):
-        global TEMP_DIR, MASK_IMG_DIR, CONTOUR_IMG_DIR
-        self.bbox_img_dir = os.path.join(self.image_dir_path,MASK_IMG_DIR)
-        if not os.path.exists(self.bbox_img_dir):
-            os.makedirs(self.bbox_img_dir)
-
-        self.contour_img_dir = os.path.join(self.image_dir_path,CONTOUR_IMG_DIR)
-        if not os.path.exists(self.contour_img_dir):
-            os.makedirs(self.contour_img_dir)
-
-        self.temp_path = os.path.join(self.image_dir_path,TEMP_DIR)
-        if not os.path.exists(self.temp_path):
-            os.makedirs(self.temp_path)
-
-
-    def set_first_image(self):
-        # 처음 보여줄 이미지를 설정
-        output_image_list = [os.path.splitext(file_path)[0] for file_path in os.listdir(self.temp_path)\
-        if os.path.splitext(file_path)[1].lower() == '.csv' or os.path.splitext(file_path)[1].lower() == '.npz']
-        # csv 파일 : bounding box 정보가 저장된 위치
-        # npz 파일 : contour 정보가 저장된 위치
-        input_image_list = [os.path.splitext(file_path)[0] for file_path in self.input_image_list]
-        if len(output_image_list) == 0:
-            self.image_index = 0
-            self.file_scale.set(self.image_index)
-            return
-        else:
-            # 이미 작업한 목록을 불러옴
-            done_list = list(set(input_image_list)&set(output_image_list))
-            if len(done_list) == 0:
-                # 이미 작업한 목록이 없으면, 처음부터 시작.
-                self.image_index = 0
-                self.file_scale.set(self.image_index)
-                return
-            else:
-                # 이미 작업한 목록이 있으면, 가장 마지막 것의 다음번째 부터 시작.
-                done_list.sort()
-                done_file_name = done_list[-1]
-                self.image_index = input_image_list.index(done_file_name)
-                if self.image_index != len(input_image_list)-1:
-                    self.image_index += 1
-                self.file_scale.set(self.image_index)
-
-                return
 
     ### 파일 저장 및 불러오기
     '''
@@ -499,7 +415,7 @@ class Application(Frame):
             output_path = os.path.join(bbox_type_dir,filename+".png")
             if np.sum(bbox_mask) == 0 :
                 if os.path.exists(output_path):
-                    self.append_text_debugbox("save empty bounding box")
+                    self.append_text_debugbox("save empty bounding box(type : {})".format(bbox_type))
                     os.remove(output_path)
             else:
                 cv2.imwrite(output_path,bbox_mask)
@@ -514,6 +430,7 @@ class Application(Frame):
         if self.bbox_df is not None:
             if self.bbox_df.empty:
                 if os.path.exists(output_path):
+                    self.append_text_debugbox("empty bounding box mask")
                     os.remove(output_path)
             else:
                 self.append_text_debugbox("save to {}".format(output_path))
@@ -591,7 +508,6 @@ class Application(Frame):
 
 
     def load_contour_mask(self):
-        self.append_text_debugbox("load contour mask")
         file_path = self.input_image_list[self.image_index]
         filename, ext = os.path.splitext(file_path)
 
@@ -617,10 +533,8 @@ class Application(Frame):
 
             if np.sum(contour_img) == 0 :
                 if contour_type in self.contour_masks_dict:
-                    self.append_text_debugbox("set contour mask")
                     self.contour_masks_dict.pop(contour_type,None)
             else:
-                self.append_text_debugbox("set contour mask")
                 self.contour_masks_dict[contour_type] = contour_img
 
 
@@ -708,6 +622,22 @@ class Application(Frame):
             - drag_contour
 
     - Frame 관련 이벤트 리스너들
+        - 디렉토리 설정 및 초기 세팅
+                - select_input_directory :
+                    annotating할 이미지가 담긴 디렉토리를 설정
+
+                - set_output_directory :
+                    작업한 결과물이 저장된 디렉토리 설정
+                    input directory 내부에 저장
+
+                    output 폴더 종류
+                        - temp : 임시 작업 공간 (csv : bounding box의 좌표 저장, npz : contour의 좌표 저장 )
+                        - bounding box : bounding box가 저장된 공간 (annotation type별로 저장)
+                        - contour : contour area가 저장된 공간
+
+                - set_first_image :
+                    기작업한 내용 다음부터 시작하도록 설정(없으면 처음)
+
         - set_annotation_type
         - jump_to_image
         - set_line_thickness
@@ -754,6 +684,8 @@ class Application(Frame):
         self.show_filename_text() # 현재 파일 순서 보여주기
         self.load_annotation_mask()
         self.show_annotation_mask()
+
+        self.append_text_debugbox("reset canvas")
 
 
     def cancel_bbox_mask(self,event):
@@ -903,11 +835,11 @@ class Application(Frame):
 
         if self.contour_points is None:
             self.contour_points = curr_point
-            self.contour = self.canvas.create_line(*curr_point.tolist(),*curr_point.tolist(), smooth=True,fill='green',width = self.line_thickness)
+            self.contour = self.canvas.create_line(*curr_point.tolist(),*curr_point.tolist(),
+                smooth=True,fill='green',width = self.line_thickness)
         else:
             self.contour_points = np.vstack([self.contour_points,curr_point])
             self.canvas.coords(self.contour, *self.contour_points.reshape(-1).tolist())
-        # default line 임시적으로 만든 것
 
 
     def drag_contour(self,event):
@@ -923,6 +855,78 @@ class Application(Frame):
         pass
 
     #### Frame 관련 이벤트 리스너들
+    def select_input_directory(self,event=None):
+        # 조작할 이미지가 담겨있는 directory를 설정
+        self.image_dir_path = filedialog.askdirectory()
+        if self.image_dir_path == "" or self.image_dir_path is None:
+            return
+        self.input_image_list =[file_path for file_path in os.listdir(self.image_dir_path)\
+        if (os.path.splitext(file_path)[1].lower() == '.jpg') or (os.path.splitext(file_path)[1].lower() == '.png')]
+
+        self.file_scale.configure(to=(len(self.input_image_list)-1))
+
+        self.input_image_list.sort()
+
+        self.set_output_directory() # 저장할 위치 설정
+        self.set_first_image() # 처음 보여줄 이미지를 설정
+        self.bind_key_to_canvas() # 설정 키들을 canvas와 연결(event listener를 설정하는 것과 비슷)
+        self.clear_debugbox() # debugbox 내용 지우기
+
+        self.append_text_debugbox("input directory : {}".format(self.image_dir_path))
+        self.append_text_debugbox("the number of image : {}".format(len(self.input_image_list)))
+
+        self.show_canvas_image() # 이미지 보여주기
+        self.show_preview_image()
+        self.show_filename_text() # 현재 파일 순서 보여주기
+        self.load_annotation_mask() # 저장된 bbox_mask를 load함
+        self.show_annotation_mask() # 저장된 bbox_mask를 Show함
+
+
+    def set_output_directory(self):
+        global TEMP_DIR, MASK_IMG_DIR, CONTOUR_IMG_DIR
+        self.bbox_img_dir = os.path.join(self.image_dir_path,MASK_IMG_DIR)
+        if not os.path.exists(self.bbox_img_dir):
+            os.makedirs(self.bbox_img_dir)
+
+        self.contour_img_dir = os.path.join(self.image_dir_path,CONTOUR_IMG_DIR)
+        if not os.path.exists(self.contour_img_dir):
+            os.makedirs(self.contour_img_dir)
+
+        self.temp_path = os.path.join(self.image_dir_path,TEMP_DIR)
+        if not os.path.exists(self.temp_path):
+            os.makedirs(self.temp_path)
+
+
+    def set_first_image(self):
+        # 처음 보여줄 이미지를 설정
+        output_image_list = [os.path.splitext(file_path)[0] for file_path in os.listdir(self.temp_path)\
+        if os.path.splitext(file_path)[1].lower() == '.csv' or os.path.splitext(file_path)[1].lower() == '.npz']
+        # csv 파일 : bounding box 정보가 저장된 위치
+        # npz 파일 : contour 정보가 저장된 위치
+        input_image_list = [os.path.splitext(file_path)[0] for file_path in self.input_image_list]
+        if len(output_image_list) == 0:
+            self.image_index = 0
+            self.file_scale.set(self.image_index)
+            return
+        else:
+            # 이미 작업한 목록을 불러옴
+            done_list = list(set(input_image_list)&set(output_image_list))
+            if len(done_list) == 0:
+                # 이미 작업한 목록이 없으면, 처음부터 시작.
+                self.image_index = 0
+                self.file_scale.set(self.image_index)
+                return
+            else:
+                # 이미 작업한 목록이 있으면, 가장 마지막 것의 다음번째 부터 시작.
+                done_list.sort()
+                done_file_name = done_list[-1]
+                self.image_index = input_image_list.index(done_file_name)
+                if self.image_index != len(input_image_list)-1:
+                    self.image_index += 1
+                self.file_scale.set(self.image_index)
+
+                return
+
     def set_annotation_type(self,event=None):
         if event in TYPE_OPTION:
             self.annotation_type = event
@@ -954,40 +958,40 @@ class Application(Frame):
     def set_line_thickness(self,event):
         re_num = re.compile("^[0-9]$")
         if re_num.match(str(event)):
-            self.append_text_debugbox("set bounding box thickness : {}".format(str(event)))
             self.line_thickness = int(event)
             if self.bbox_df is None or self.bbox_df.empty:
                 return
             for bbox_type in self.bbox_df.bbox_type.values:
                 self.set_bbox_mask(int(bbox_type))
             self.show_annotation_mask() # 저장된 bbox_mask를 Show함
+            self.append_text_debugbox("set bounding box thickness : {}".format(str(event)))
 
 
     def set_blend_ratio(self,event):
         re_num = re.compile("^\d*(\.?\d*)$")
         if re_num.match(str(event)):
             self.blend_ratio = float(event)
+            self.show_canvas_image()
+            self.show_annotation_mask()
             self.append_text_debugbox("set blend ratio : {}".format(str(event)))
-        self.show_canvas_image() # 이미지 보여주기
-        self.show_annotation_mask() # 저장된 bbox_mask를 Show함
 
 
     def set_brightness(self,event):
         re_num = re.compile("^\d*(\.?\d*)$")
         if re_num.match(str(event)):
             self.brightness_gamma = float(event)
+            self.show_canvas_image()
+            self.show_annotation_mask()
             self.append_text_debugbox("set brightness : {}".format(str(event)))
-        self.show_canvas_image() # 이미지 보여주기
-        self.show_annotation_mask() # 저장된 bbox_mask를 Show함
 
 
     def set_clahe(self,event):
         re_num = re.compile("^\d+$")
         if re_num.match(str(event)):
-            self.append_text_debugbox("set clahe tile size : {}".format(str(event)))
             self.clahe_value = int(event)
-        self.show_canvas_image()
-        self.show_annotation_mask() # 저장된 bbox_mask를 Show함
+            self.show_canvas_image()
+            self.show_annotation_mask()
+            self.append_text_debugbox("set clahe tile size : {}".format(str(event)))
 
 
     def set_redfree(self):
@@ -995,9 +999,10 @@ class Application(Frame):
             self.redfree_or_not = True
         else :
             self.redfree_or_not = False
-        self.append_text_debugbox("Convert to red-free image : {}".format(self.redfree_or_not))
+
         self.show_canvas_image() # 이미지 보여주기
         self.show_annotation_mask() # 저장된 bbox_mask를 Show함
+        self.append_text_debugbox("Convert to red-free image : {}".format(self.redfree_or_not))
 
 
 if __name__ == "__main__":
