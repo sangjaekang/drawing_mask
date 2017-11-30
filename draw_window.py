@@ -102,17 +102,24 @@ class Application(Frame):
         self.filename_text = StringVar()
         Label(self.frame, text="현재 파일 : ").grid(row=row_idx,column=0, sticky="w")
         Label(self.frame,textvariable=self.filename_text).grid(row = row_idx,column = 1,sticky = "ew")
+        row_idx+=1
+        ## file moving scale
+        self.file_scale = Scale(self.frame, from_=0,to=0, orient=HORIZONTAL, command=self.jump_to_image,resolution=1)
+        self.file_scale.set(0)
+        self.file_scale.grid(row=row_idx,column=0,columnspan=2,sticky="ew")
 
         ## Debug window 구성
         row_idx+=1
-        self.debugbox = Text(self.frame,height=30,width=30)
-        self.debugbox.grid(row=row_idx,column=0,columnspan=2,sticky="ew",pady=10)
-
+        self.debugbox = Text(self.frame,height=7,width=30)
+        self.debugbox.grid(row=row_idx,column=0,columnspan=2,sticky="ew",pady=5)
+        row_idx+=1
+        self.preview_imagebox = Label(self.frame,height=15,width=30,background='black')
+        self.preview_imagebox.grid(row=row_idx,column=0,columnspan=2,sticky="ew",pady=5)
         ## Configuration 구성
         ### 선 굵기 결정
         row_idx+=1
         Label(self.frame, text = "선 굵기[bounding box mode] :\n클수록 선의 굵기가 굵어짐",justify=LEFT)\
-        .grid(row=row_idx,column=0, sticky="w",pady=10)
+        .grid(row=row_idx,column=0, sticky="w",pady=5)
         row_idx+=1
         t_scale = Scale(self.frame, from_=1,to=5, orient=HORIZONTAL, command=self.set_line_thickness)
         t_scale.set(2)
@@ -120,7 +127,7 @@ class Application(Frame):
         ### 블렌딩 비율 결정
         row_idx+=1
         Label(self.frame, text = "Blending 비율[drawing mode] :\n클수록 Segmentation 색이 진해짐",justify=LEFT)\
-        .grid(row=row_idx,column=0, sticky="w",pady=10)
+        .grid(row=row_idx,column=0, sticky="w",pady=5)
         row_idx+=1
         t_scale = Scale(self.frame, from_=0,to=1, orient=HORIZONTAL, command=self.set_blend_ratio,resolution=0.05)
         t_scale.set(0.5)
@@ -129,7 +136,7 @@ class Application(Frame):
         ### 명도 결정
         row_idx+=1
         Label(self.frame, text = "명도 변경[Gamma Correction] :\n작을수록 어두워짐, 클수록 밝아짐",justify=LEFT)\
-        .grid(row=row_idx,column=0, sticky="w",pady=10)
+        .grid(row=row_idx,column=0, sticky="w",pady=5)
         row_idx+=1
         g_scale = Scale(self.frame, from_=0.1,to=2, orient=HORIZONTAL, command=self.set_brightness,resolution=0.05)
         g_scale.set(1)
@@ -138,7 +145,7 @@ class Application(Frame):
         ### CLAHE 적용
         row_idx+=1
         Label(self.frame, text = "대조 강조[CLAHE Algorithm 이용] :\n0은 적용 안됨, 2~20은 적용 상수",justify=LEFT)\
-        .grid(row=row_idx,column=0, sticky="w",pady=10)
+        .grid(row=row_idx,column=0, sticky="w",pady=5)
         row_idx+=1
         g_scale = Scale(self.frame, from_=0,to=20, orient=HORIZONTAL, command=self.set_clahe,resolution=2)
         g_scale.set(0)
@@ -146,10 +153,10 @@ class Application(Frame):
 
         ### RED FREE 이미지로 변환
         row_idx+=1
-        Label(self.frame, text = "Red-Free image로의 변환 유무 :",justify=LEFT).grid(row=row_idx, column=0, sticky="w",pady=10)
+        Label(self.frame, text = "Red-Free image로의 변환 유무 :",justify=LEFT).grid(row=row_idx, column=0, sticky="w",pady=5)
         self.check_rf = IntVar()
         #row_idx+=1
-        Checkbutton(self.frame, text='Red-Free', variable=self.check_rf, command=self.set_redfree).grid(row=row_idx, column=1, sticky="w", pady=10)
+        Checkbutton(self.frame, text='Red-Free', variable=self.check_rf, command=self.set_redfree).grid(row=row_idx, column=1, sticky="w", pady=5)
         self.master.minsize(width=1100,height=1010)
 
     def show_filename_text(self):
@@ -174,6 +181,9 @@ class Application(Frame):
             return
         self.input_image_list =[file_path for file_path in os.listdir(self.image_dir_path)\
         if (os.path.splitext(file_path)[1].lower() == '.jpg') or (os.path.splitext(file_path)[1].lower() == '.png')]
+
+        self.file_scale.configure(to=(len(self.input_image_list)-1))
+
         self.input_image_list.sort()
 
         self.append_text_debugbox("input directory : {}".format(self.image_dir_path))
@@ -183,7 +193,8 @@ class Application(Frame):
         self.set_first_image() # 처음 보여줄 이미지를 설정
         self.bind_key_to_canvas() # 설정 키들을 canvas와 연결(event listener를 설정하는 것과 비슷)
         self.clear_debugbox() # debugbox 내용 지우기
-        self.show_image() # 이미지 보여주기
+        self.show_canvas_image() # 이미지 보여주기
+        self.show_preview_image()
         self.show_filename_text() # 현재 파일 순서 보여주기
         self.load_annotation_mask() # 저장된 bbox_mask를 load함
         self.show_annotation_mask() # 저장된 bbox_mask를 Show함
@@ -213,6 +224,7 @@ class Application(Frame):
         input_image_list = [os.path.splitext(file_path)[0] for file_path in self.input_image_list]
         if len(output_image_list) == 0:
             self.image_index = 0
+            self.file_scale.set(self.image_index)
             return
         else:
             # 이미 작업한 목록을 불러옴
@@ -220,18 +232,29 @@ class Application(Frame):
             if len(done_list) == 0:
                 # 이미 작업한 목록이 없으면, 처음부터 시작.
                 self.image_index = 0
+                self.file_scale.set(self.image_index)
                 return
             else:
                 # 이미 작업한 목록이 있으면, 가장 마지막 것의 다음번째 부터 시작.
                 done_list.sort()
                 done_file_name = done_list[-1]
                 self.image_index = input_image_list.index(done_file_name)
-                if self.image_index != len(input_image_list):
+                if self.image_index != len(input_image_list)-1:
                     self.image_index += 1
+                    self.file_scale.set(self.image_index)
                 return
 
 
-    def show_image(self):
+    def show_preview_image(self):
+        # 현재 cv_image의 original image를 보여줌
+        if self.cv_image is not None:
+            preview_image = cv2.resize(self.cv_image,(300,300))
+            self.preview_image = ImageTk.PhotoImage(Image.fromarray(preview_image))
+            self.preview_imagebox.configure(image=self.preview_image,height=300,width=30)
+            self.preview_imagebox.image = self.preview_image
+
+
+    def show_canvas_image(self):
         # 현재 image index의 image를 보여줌
         if self.input_image_list is None:
             return
@@ -437,7 +460,7 @@ class Application(Frame):
         if re_num.match(str(event)):
             self.blend_ratio = float(event)
             self.append_text_debugbox("set blend ratio : {}".format(str(event)))
-        self.show_image() # 이미지 보여주기
+        self.show_canvas_image() # 이미지 보여주기
         self.show_annotation_mask() # 저장된 bbox_mask를 Show함
 
 
@@ -446,7 +469,7 @@ class Application(Frame):
         if re_num.match(str(event)):
             self.brightness_gamma = float(event)
             self.append_text_debugbox("set brightness : {}".format(str(event)))
-        self.show_image() # 이미지 보여주기
+        self.show_canvas_image() # 이미지 보여주기
         self.show_annotation_mask() # 저장된 bbox_mask를 Show함
 
 
@@ -455,7 +478,7 @@ class Application(Frame):
         if re_num.match(str(event)):
             self.append_text_debugbox("set clahe tile size : {}".format(str(event)))
             self.clahe_value = int(event)
-        self.show_image()
+        self.show_canvas_image()
         self.show_annotation_mask() # 저장된 bbox_mask를 Show함
 
 
@@ -465,7 +488,7 @@ class Application(Frame):
         else :
             self.redfree_or_not = False
         self.append_text_debugbox("Convert to red-free image : {}".format(self.redfree_or_not))
-        self.show_image() # 이미지 보여주기
+        self.show_canvas_image() # 이미지 보여주기
         self.show_annotation_mask() # 저장된 bbox_mask를 Show함
 
 
@@ -507,7 +530,7 @@ class Application(Frame):
     def reset_canvas(self,event):
         self.init_annotation_mask()
         self.clear_debugbox() # debugbox 내용 지우기
-        self.show_image() # 이미지 보여주기
+        self.show_canvas_image() # 이미지 보여주기
         self.show_filename_text() # 현재 파일 순서 보여주기
         self.load_annotation_mask()
         self.show_annotation_mask()
@@ -522,8 +545,10 @@ class Application(Frame):
             self.init_annotation_mask()
 
             self.image_index += 1
+            self.file_scale.set(self.image_index)
             self.clear_debugbox() # debugbox 내용 지우기
-            self.show_image() # 이미지 보여주기
+            self.show_canvas_image() # 이미지 보여주기
+            self.show_preview_image() # 이미지의 원본 보여주기
             self.show_filename_text() # 현재 파일 순서 보여주기
             self.load_annotation_mask()
             self.show_annotation_mask()
@@ -538,11 +563,34 @@ class Application(Frame):
             self.init_annotation_mask()
 
             self.image_index -= 1
+            self.file_scale.set(self.image_index)
             self.clear_debugbox() # debugbox 내용 지우기
-            self.show_image() # 이미지 보여주기
+            self.show_canvas_image() # 이미지 보여주기
+            self.show_preview_image() # 이미지의 원본 보여주기
             self.show_filename_text() # 현재 파일 순서 보여주기
             self.load_annotation_mask()
             self.show_annotation_mask()
+
+
+    def jump_to_image(self,event):
+        jumped_idx = int(event)
+        if self.input_image_list is None or len(self.input_image_list) == 0 :
+            # 아직 directory 결정이 안되었을 경우,
+            # input image list가 0 인 경우
+            return
+        if self.bbox_changed:
+            self.save_bbox_mask()
+        if self.contour_changed:
+            self.save_contour_mask()
+        self.init_annotation_mask()
+
+        self.image_index = jumped_idx
+        self.clear_debugbox()
+        self.show_canvas_image() # 이미지 보여주기
+        self.show_preview_image() # 이미지의 원본 보여주기
+        self.show_filename_text() # 현재 파일 순서 보여주기
+        self.load_annotation_mask()
+        self.show_annotation_mask()
 
 
     def cancel_bbox_mask(self,event):
@@ -810,7 +858,7 @@ class Application(Frame):
             self.annotation_type = event
         self.bind_key_to_canvas()
 
-        self.show_image()
+        self.show_canvas_image()
         self.show_annotation_mask()
 
 
