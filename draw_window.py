@@ -12,8 +12,6 @@ import os
 import re
 import csv
 
-from itertools import zip_longest
-
 COLOR_PALETTE = [(255,255,255),
                 (0,0,150),
                 (0,150,0),
@@ -27,12 +25,14 @@ TYPE_OPTION = ["bounding box", "painting contour line"]
 TEMP_DIR = "temp"
 MASK_IMG_DIR = 'bounding_box'
 CONTOUR_IMG_DIR = 'contour'
+APPLICATION_TITLE = "MEDI-DRAW"
 
 class Application(Frame):
     def __init__(self,master):
-        global TYPE_OPTION
+        global TYPE_OPTION, BACKGROUND_COLOR
         # Create a container
         self.master = master
+
         self.image_dir_path = None # input directory의 위치
         self.bbox_img_dir = None # mask image가 저장되는 위치
         self.contour_img_dir = None # contour image가 저장되는 위치
@@ -73,8 +73,8 @@ class Application(Frame):
 
 
     def set_annotation_window(self):
-        global TYPE_OPTION
-        self.master.title("Fundus Image annotation palette")
+        global TYPE_OPTION, APPLICATION_TITLE
+        self.master.title(APPLICATION_TITLE)
 
         # 이미지 canvas 창 구성
         self.canvas=Canvas(self.master, width=1010, height=1010, background='white')
@@ -276,7 +276,7 @@ class Application(Frame):
         # bbox가 있는 그림 그리기
         if self.cv_image is None:
             return
-        #image_bg = self.cv_image.copy()
+
         image_bg = self.adjust_image()
 
         if len(self.bbox_masks_dict) == 0 :
@@ -471,6 +471,7 @@ class Application(Frame):
 
     def bind_key_to_canvas(self):
         self.master.bind("<Escape>",self.save_annotation_mask)
+        self.master.bind("<Control-r>",self.reset_canvas)
         if self.annotation_type  == TYPE_OPTION[0]:
             # Bounding Box에 관련된 것으로 Binding
             self.canvas.bind("<Button-1>", self.press_bbox)
@@ -482,7 +483,6 @@ class Application(Frame):
             self.master.bind("<Control-x>",self.cancel_bbox_mask)
             self.master.bind("<Control-s>",self.save_bbox_mask)
             self.master.bind("<Key>",self.set_color_type)
-
         elif self.annotation_type  == TYPE_OPTION[1]:
             # Drawing Contour에 관련된 것으로 Binding
             self.canvas.bind("<Button-1>", self.press_contour)
@@ -502,6 +502,15 @@ class Application(Frame):
             self.save_bbox_mask()
         if self.contour_changed:
             self.save_contour_mask()
+
+
+    def reset_canvas(self,event):
+        self.init_annotation_mask()
+        self.clear_debugbox() # debugbox 내용 지우기
+        self.show_image() # 이미지 보여주기
+        self.show_filename_text() # 현재 파일 순서 보여주기
+        self.load_annotation_mask()
+        self.show_annotation_mask()
 
 
     def move_next_image(self,event):
